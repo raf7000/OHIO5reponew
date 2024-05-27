@@ -3,3 +3,4 @@ y = x + 5
 print(y) 
 
 library(ggplot2)
+z = x + y 
