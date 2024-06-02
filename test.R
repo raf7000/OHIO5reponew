@@ -1,9 +1,25 @@
-x = 5 
-y = x + 5
-print(y) 
+#monte carlo estimating e 
 
-library(ggplot2)
-z = x + y 
-x_5 = 3+5 
-mug = 3 + 4 
-faiz = 9+3
+e_estimation = function(num_of_trials) {
+  counts = numeric(num_of_trials)
+  for (i in 1:num_of_trials) {
+    sum = 0
+    count = 0 
+    
+    while (sum <= 1) {
+      sum = sum + runif(1)
+      count <- count + 1
+    }
+    
+    counts[i] <- count
+  }
+  mean(counts)  # The average count should converge to e
+}
+
+
+ 
+
+
+
+
+
