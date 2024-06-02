@@ -16,6 +16,14 @@ e_estimation = function(num_of_trials) { #defining function to estimate e
   mean(counts)  #The average count should converge to e
 }
 
+set.seed(123) #for reproducility 
+num_of_trials = 100000 #setting a large number of trials 
+estimated_e = e_estimation(num_of_trials) 
+print(estimated_e)
+
+
+
+
 
  
 
