@@ -31,12 +31,45 @@ estimated_e = e_estimation(num_of_trials)
 print(estimated_e)
 
 
+#t test simulation example 
+n_sims <- 10000
+n1 <- 400
+n2 <- 600
+true_diff = 0.5
 
+p_values <- numeric(n_sims)
+test_stats <- numeric(n_sims)
+estimates <- numeric(n_sims)
+rejections <- logical(n_sims)
 
+for(i in 1:n_sims){
+  
+  #data being produced randomly from two different normal distributions 
+  x1 <- rnorm(n1, mean = 0, sd = 1)
+  x2 <- rnorm(n2, mean = 0.5, sd = 1)
+  
+  test_result <- t.test(x1, x2)
+  
+  p_values[i] <- test_result$p.value
+  test_stats[i] <- test_result$statistic
+  estimates[i] <- test_result$estimate[2] - test_result$estimate[1] 
+  rejections[i] <- test_result$p.value < 0.05
+  
+}
 
- 
+bias <- mean(estimates - true_diff)
 
+TPR <- mean(rejections)
 
+mean_p_value <- mean(p_values)
+mean_test_stat <- mean(test_stats)
+power <- mean(p_values < 0.05)
+
+print(mean_p_value)
+print(mean_test_stat)
+print(power)
+print(TPR)
+print(bias) 
 
 
 
