@@ -40,29 +40,23 @@ simulate_t_tests <- function(n_sims, n1, n2, true_diff) {
   
   print(mean_stats)
 
-simulation_data <- simulate_t_tests(n_sims = 10000, n1 = 400, n2 = 600, true_diff = 0.5)
-
-p_value_plot <- ggplot(simulation_data, aes(x = p_values)) +
-  geom_histogram(bins = 30, fill = "skyblue", color = "black") +
-  labs(title = "Histogram of P-values", x = "P-value", y = "Frequency")
-
-estimate_plot <- ggplot(simulation_data, aes(x = estimates)) +
-  geom_histogram(bins = 30, fill = "lightgreen", color = "black") +
-  labs(title = "Histogram of Estimates", x = "Estimate", y = "Frequency")
-
-scatter_plot <- ggplot(simulation_data, aes(x = test_stats, y = estimates, color = rejections)) +
-  geom_point(alpha = 0.5) +
-  scale_color_manual(values = c("red", "blue"), labels = c("Rejected", "Not Rejected")) +
-  labs(title = "Scatter Plot of Test Statistics vs. Estimates",
-       x = "Test Statistic", y = "Estimate", color = "Hypothesis Test Result")
-
-
-print(p_value_plot)
-print(estimate_plot)
-print(scatter_plot)
-
-small_sample_results <- simulate_t_tests(n_sims = 10000, n1 = 200, n2 = 300, true_diff = 0.5)
-large_sample_results <- simulate_t_tests(n_sims = 10000, n1 = 800, n2 = 1200, true_diff = 0.5)
+  p_value_plot <- ggplot(simulation_data, aes(x = p_values)) +
+    geom_histogram(bins = 30, fill = "skyblue", color = "black") +
+    labs(title = "Histogram of P-values", x = "P-value", y = "Frequency")
+  
+  estimate_plot <- ggplot(simulation_data, aes(x = estimates)) +
+    geom_histogram(bins = 30, fill = "lightgreen", color = "black") +
+    labs(title = "Histogram of Estimates", x = "Estimate", y = "Frequency")
+  
+  scatter_plot <- ggplot(simulation_data, aes(x = test_stats, y = estimates, color = rejections)) +
+    geom_point(alpha = 0.5) +
+    scale_color_manual(values = c("red", "blue"), labels = c("Rejected", "Not Rejected")) +
+    labs(title = "Scatter Plot of Test Statistics vs. Estimates",
+         x = "Test Statistic", y = "Estimate", color = "Hypothesis Test Result")
+  
+  print(p_value_plot)
+  print(estimate_plot)
+  print(scatter_plot)
+}
 
 
-cat("Mean of X:", mean(x), "Mean of Y:", mean(y), "Mean of Z:", mean(z), "\n")
