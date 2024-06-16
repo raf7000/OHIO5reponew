@@ -47,6 +47,6 @@ scatter_plot <- ggplot(simulation_data, aes(x = test_stats, y = estimates, color
 
 print(p_value_plot)
 print(estimate_plot)
-print(scatter_plot)
+
 
 
