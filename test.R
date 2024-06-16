@@ -26,7 +26,7 @@ e_estimation = function(num_of_trials) { #defining function to estimate e
   
 
 set.seed(123) #for reproducility 
-num_of_trials = 20000 #setting a large number of trials 
+num_of_trials = 10000 #setting a large number of trials 
 estimated_e = e_estimation(num_of_trials) 
 print(estimated_e)
 
