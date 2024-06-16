@@ -20,14 +20,25 @@ simulate_t_tests <- function(n_sims, n1, n2, true_diff) {
     rejections[i] <- test_result$p.value < 0.05
   }
   
-  data.frame(
+  # Compile the simulation data
+  simulation_data <- data.frame(
     p_values = p_values,
     test_stats = test_stats,
     estimates = estimates,
     rejections = rejections,
     bias = estimates - true_diff
   )
-}
+  
+  # Calculate means of performance measures
+  mean_stats <- data.frame(
+    mean_p_value = mean(simulation_data$p_values),
+    mean_test_stat = mean(simulation_data$test_stats),
+    mean_estimate = mean(simulation_data$estimates),
+    rejection_rate = mean(simulation_data$rejections),
+    mean_bias = mean(simulation_data$bias)
+  )
+  
+  print(mean_stats)
 
 simulation_data <- simulate_t_tests(n_sims = 10000, n1 = 400, n2 = 600, true_diff = 0.5)
 
@@ -45,8 +56,13 @@ scatter_plot <- ggplot(simulation_data, aes(x = test_stats, y = estimates, color
   labs(title = "Scatter Plot of Test Statistics vs. Estimates",
        x = "Test Statistic", y = "Estimate", color = "Hypothesis Test Result")
 
+
 print(p_value_plot)
 print(estimate_plot)
+print(scatter_plot)
+
+small_sample_results <- simulate_t_tests(n_sims = 10000, n1 = 200, n2 = 300, true_diff = 0.5)
+large_sample_results <- simulate_t_tests(n_sims = 10000, n1 = 800, n2 = 1200, true_diff = 0.5)
 
 
-
+cat("Mean of X:", mean(x), "Mean of Y:", mean(y), "Mean of Z:", mean(z), "\n")
