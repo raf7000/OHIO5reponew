@@ -10,7 +10,7 @@ simulate_t_tests <- function(n_sims, n1, n2, true_diff) {
   
   for (i in 1:n_sims) {
     x1 <- rnorm(n1, mean = 0, sd = 1)
-    x2 <- rnorm(n2, mean = 0.5, sd = 1)
+    x2 <- rnorm(n2, mean = 0.5, sd = 3)
     
     test_result <- t.test(x1, x2)
     
@@ -20,7 +20,6 @@ simulate_t_tests <- function(n_sims, n1, n2, true_diff) {
     rejections[i] <- test_result$p.value < 0.05
   }
   
-  # Compile the simulation data
   simulation_data <- data.frame(
     p_values = p_values,
     test_stats = test_stats,
@@ -29,7 +28,6 @@ simulate_t_tests <- function(n_sims, n1, n2, true_diff) {
     bias = estimates - true_diff
   )
   
-  # Calculate means of performance measures
   mean_stats <- data.frame(
     mean_p_value = mean(simulation_data$p_values),
     mean_test_stat = mean(simulation_data$test_stats),
@@ -59,4 +57,7 @@ simulate_t_tests <- function(n_sims, n1, n2, true_diff) {
   print(scatter_plot)
 }
 
-
+simulate_t_tests(n_sims = 10000, n1 = 400, n2 = 600, true_diff = 0.5)
+simulate_t_tests(n_sims = 10, n1 = 400, n2 = 600, true_diff = 0.5)
+simulate_t_tests(n_sims = 10000, n1 = 400, n2 = 600, true_diff = 0.5)
+simulate_t_tests(n_sims = 10000, n1 = 40, n2 = 60, true_diff = 0.5)
