@@ -18,7 +18,7 @@ library(gridExtra)
 #define function 
 set.seed(123) 
 
-simulate_t_tests <- function(n_sims, n1, n2, true_diff) {
+simulate_t_tests <- function(n_sims, n1, n2, true_diff, sim_id) {
   p_values <- numeric(n_sims)
   test_stats <- numeric(n_sims)
   estimates <- numeric(n_sims)
@@ -37,6 +37,7 @@ simulate_t_tests <- function(n_sims, n1, n2, true_diff) {
   }
   
   simulation_data <- data.frame(
+    sim_id = rep(sim_id, n_sims),
     p_values = p_values,
     test_stats = test_stats,
     estimates = estimates,
@@ -44,62 +45,52 @@ simulate_t_tests <- function(n_sims, n1, n2, true_diff) {
     bias = estimates - true_diff
   )
   
-  mean_stats <- data.frame(
-    mean_p_value = mean(simulation_data$p_values),
-    mean_test_stat = mean(simulation_data$test_stats),
-    mean_estimate = mean(simulation_data$estimates),
-    power = mean(simulation_data$rejections),
-    mean_bias = mean(simulation_data$bias)
-  )
-  
-  print(mean_stats)
-
-  p_value_plot <- ggplot(simulation_data, aes(x = p_values)) +
-    geom_histogram(bins = 30, fill = "skyblue", color = "black") +
-    labs(title = "Histogram of P-values", x = "P-value", y = "Frequency")
-  
-  estimate_plot <- ggplot(simulation_data, aes(x = estimates)) +
-    geom_histogram(bins = 30, fill = "lightgreen", color = "black") +
-    labs(title = "Histogram of Estimates", x = "Estimate", y = "Frequency")
-  
-  scatter_plot <- ggplot(simulation_data, aes(x = test_stats, y = estimates, color = rejections)) +
-    geom_point(alpha = 0.5) +
-    scale_color_manual(values = c("red", "blue"), labels = c("Rejected", "Not Rejected")) +
-    labs(title = "Scatter Plot of Test Statistics vs. Estimates",
-         x = "Test Statistic", y = "Estimate", color = "Hypothesis Test Result")
-  
-  print(p_value_plot)
-  print(estimate_plot)
-  print(scatter_plot)
+   return(simulation_data)
 }
 ```
 
 ```{r}
-#simulation 1, n_sims = 10000, n1 = 400, n2 = 600, true_diff 
-simulate_t_tests(n_sims = 10000, n1 = 400, n2 = 600, true_diff = 0.5)
+all_data <- bind_rows(
+  simulate_t_tests(10000, 400, 600, 0.5, "Sim 1"),
+  simulate_t_tests(10, 400, 600, 0.5, "Sim 2"),
+  simulate_t_tests(10000, 40, 60, 0.5, "Sim 3"),
+  simulate_t_tests(10, 40, 60, 0.5, "Sim 4")
+)
+
+# Calculate mean statistics for each simulation
+mean_stats <- all_data %>%
+  group_by(sim_id) %>%
+  summarise(
+    Mean_P_Value = mean(p_values),
+    Mean_Test_Stat = mean(test_stats),
+    Mean_Estimate = mean(estimates),
+    Power = mean(rejections),
+    Mean_Bias = mean(bias)
+  )
+```
+
+
+```{r}
+all_data <- bind_rows(
+  simulate_t_tests(10000, 400, 600, 0.5, "Sim 1 - 10000 trials, n1=400, n2=600"),
+  simulate_t_tests(1000, 400, 600, 0.5, "Sim 2 - 1000 trials, n1=400, n2=600"),
+  simulate_t_tests(10000, 40, 60, 0.5, "Sim 3 - 10000 trials, n1=40, n2=60"),
+  simulate_t_tests(1000, 40, 60, 0.5, "Sim 4 - 1000 trials, n1=40, n2=60")
+)
 ```
 
 ```{r}
-#simulation 2, n_sims = 10, n1 = 400, n2 = 600, true_diff = 0.5 
-simulate_t_tests(n_sims = 10, n1 = 400, n2 = 600, true_diff = 0.5)
-```
+power_plot <- all_data %>%
+  group_by(sim_id) %>%
+  summarise(Power = mean(rejections)) %>%
+  ggplot(aes(x = sim_id, y = Power, fill = sim_id)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Bar Plot of Rejection Rates", x = "Simulation ID", y = "Power")
 
-```{r}
-#simulation 3, n_sims = 10000, n1 = 40, n2 = 60, true_diff = 0.5 
-simulate_t_tests(n_sims = 10000, n1 = 40, n2 = 60, true_diff = 0.5)
-```
-
-```{r}
-#simulation 4, n_sims = 10, n1 = 40, n2 = 60, true_diff = 0.5
-simulate_t_tests(n_sims = 10000, n1 = 40, n2 = 60, true_diff = 0.5)
-```
-
-
-```{r}
-p_value_plot <- ggplot(all_data, aes(x = p_values, fill = sim_id)) +
-  geom_histogram(position = "dodge", bins = 30) +
-  facet_wrap(~sim_id, scales = "free") +
-  labs(title = "Histogram of P-values", x = "P-value", y = "Frequency")
+histogram_bias <- ggplot(all_data, aes(x = bias, fill = sim_id)) +
+  geom_histogram(bins = 30, alpha = 0.6) +
+  facet_wrap(~sim_id) +
+  labs(title = "Histogram of Bias", x = "Bias", y = "Frequency")
 
 estimate_plot <- ggplot(all_data, aes(x = estimates, fill = sim_id)) +
   geom_histogram(position = "dodge", bins = 30) +
@@ -112,17 +103,14 @@ scatter_plot <- ggplot(all_data, aes(x = test_stats, y = estimates, color = reje
   scale_color_manual(values = c("red", "blue")) +
   labs(title = "Scatter Plot of Test Statistics vs. Estimates", x = "Test Statistic", y = "Estimate", color = "Hypothesis Test Result")
 
-grid.arrange(p_value_plot, estimate_plot, scatter_plot, ncol = 1)
+grid.arrange(power_plot,histogram_bias, estimate_plot, scatter_plot, ncol = 1)
 ```
 
+Decreasing Sample Size: Smaller sample sizes (Simulations 3 and 4 with n1=40, n2=60) led to higher variance in estimates and reduced power, making it less likely to correctly reject the null hypothesis. This also resulted in a higher mean bias, with a large variance as denoted by the bias histogram for simulation 3.
 
-Analysis: 
+Increasing Sample Size: Larger sample sizes (Simulations 1 and 2 with n1=400, n2=600) improved the precision and power of the test. This is reflected in the broader distributions of estimates, suggesting more reliable detection of true effects.
 
-Decreasing Sample Size: Reducing the sample size increased the variance of the estimator. This change reduced the power of the test (the ability to correctly reject the null hypothesis when it is false), and it also increased the bias (underhitting to more extent). 
+Impact of Number of Simulations (n_sims): More simulations (Sim 1 and 3 with 10,000 trials) enhanced the stability and accuracy of the estimates, shown by increased power and reduces bias (note that power for sim 3 is 0.2, which is still more than double of sim 4). 
 
-Increasing Sample Size: Increasing the sample size enhanced the precision of the estimator, and increased the power of the test. There are more cases when the p-value is very small, indicating a higher likelihood of rejecting the null hypothesis when it is indeed false.
-Replicating with Different n_sims:
-
-Changing the number of simulations (n_sims) impacted the estimates of power and bias. The power increased and the bias was very small.  
-
+Confidence Intervals and Histogram of Estimates: Narrow distributions in Simulations 1 and 2 indicate tight confidence intervals, which get us pretty close to the true value of our parameter (0.5). Distributions in Simulations 3 and 4 suggest wide confidence intervals, increasing the uncertainty in the estimate of our true_diff parameter.  
 
