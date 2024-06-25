@@ -16,23 +16,15 @@ simulate_and_fit_models <- function(n, beta, true_model, random_effects_var, ske
   bic_fixed <- BIC(model_fixed)
   bic_mixed <- BIC(model_mixed)
   
-  which model has the lower BIC
+  #which model has the lower BIC
   selected_model <- ifelse(bic_fixed < bic_mixed, "fixed", "mixed")
   
   return(list(true_model = true_model, selected_model = selected_model, bic_fixed = bic_fixed, bic_mixed = bic_mixed))
 }
 
 
-set.seed(123)
-result <- simulate_and_fit_models(n = 100, beta = 0.5, true_model = "mixed", random_effects_var = 1, skewness_factor = 2, kurtosis_factor = 2)
-print(result)
-
-
-library(lme4)
-library(MASS)
-
-n_simulations <- 100
-results <- data.frame(Skewness = integer(), 
+n_simulations <- 1000 
+results <- data.frame(Skewness = integer(),  
                       Kurtosis = integer(), 
                       Model = character(), 
                       CorrectSelections = integer(),
@@ -48,7 +40,7 @@ for (skew in skewness_levels) {
   for (kurt in kurtosis_levels) {
     for (model in models) {
       sim_results <- replicate(n_simulations, 
-                               simulate_and_fit_models(n = 100, beta = 0.5, true_model = model, 
+                               simulate_and_fit_models(n = 1000, beta = 0.5, true_model = model, 
                                                        random_effects_var = 1, skewness_factor = skew, 
                                                        kurtosis_factor = kurt),
                                simplify = FALSE)
@@ -68,5 +60,4 @@ for (skew in skewness_levels) {
 }
 
 print(results)
-
 
