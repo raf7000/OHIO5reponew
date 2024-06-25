@@ -1,6 +1,8 @@
 ---
 title: "R Notebook"
 output:
+  html_document:
+    df_print: paged
   pdf_document: default
   html_notebook: default
 ---
@@ -113,4 +115,5 @@ Increasing Sample Size: Larger sample sizes (Simulations 1 and 2 with n1=400, n2
 Impact of Number of Simulations (n_sims): More simulations (Sim 1 and 3 with 10,000 trials) enhanced the stability and accuracy of the estimates, shown by increased power and reduces bias (note that power for sim 3 is 0.2, which is still more than double of sim 4). 
 
 Confidence Intervals and Histogram of Estimates: Narrow distributions in Simulations 1 and 2 indicate tight confidence intervals, which get us pretty close to the true value of our parameter (0.5). Distributions in Simulations 3 and 4 suggest wide confidence intervals, increasing the uncertainty in the estimate of our true_diff parameter.  
+
 
