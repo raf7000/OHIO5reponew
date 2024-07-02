@@ -15,7 +15,7 @@ hybrid_BIC <- function(model, is_mixed = FALSE) {
     n_fixed_params <- n_params - n_random_params
     BIC_value <- -2 * logLik_val + n_random_params * log(N) + n_fixed_params * log(n_tot)
   } else {
-    BIC_value <- -2 * logLik_val + n_params * log(n_tot)
+    BIC_value <- -2 * logLik_val + n_params * log(n_tot) #hybrid definition 
   }
   
   return(as.numeric(BIC_value))
