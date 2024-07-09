@@ -131,4 +131,4 @@ summary_table <- all_results %>%
   summarise(count = n()) %>%
   pivot_wider(names_from = selected_model, values_from = count, values_fill = 0)
 
-print(summary_table)
+summary_table
