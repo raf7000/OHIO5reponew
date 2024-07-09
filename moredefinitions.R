@@ -114,7 +114,7 @@ all_results <- do.call(rbind, all_results)
 
 # Create violin plot
 #ggplot(pivot_longer(all_results, cols = starts_with("bic_"), names_to = "model", values_to = "BIC"),
-       aes(x = true_model, y = BIC, fill = model)) +
+      # aes(x = true_model, y = BIC, fill = model)) +
   geom_violin() +
   facet_wrap(~ BIC_definition) +
   theme_minimal() +
