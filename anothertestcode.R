@@ -58,3 +58,4 @@ ggplot(results, aes(x = model, y = BIC, fill = correct)) +
   scale_fill_manual(values = c("TRUE" = "green", "FALSE" = "red")) +
   theme_minimal()
 
+results
