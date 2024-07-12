@@ -1,11 +1,14 @@
 library(lme4)
 library(MASS)
 
+## package mvtnorm
+## package skewlmm
 
 simulate_and_fit_models <- function(n, beta, true_model, random_effects_var, skewness_factor, kurtosis_factor) {
   # data alg 
   X <- rnorm(n) * kurtosis_factor
   group_effect <- if (true_model == "mixed") rnorm(n, mean = 0, sd = sqrt(random_effects_var)) else rep(0, n)
+  ## change to make sure only one random number per subject
   epsilon <- rnorm(n) ^ skewness_factor
   y <- X * beta + group_effect + epsilon
   

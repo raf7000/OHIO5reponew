@@ -26,12 +26,25 @@ simulate_and_fit_models <- function(ni, m, beta, random_effects_var, true_model,
   random_effect <- rep(rnorm(m, 0, sqrt(random_effects_var)), each = ni)
   epsilon <- rnorm(ni * m, 0, noise_level)
   
+  #include_matrix <- matrix(c(
+    #1, 1, 1,  # full
+    #1, 1, 0,  # reduced1
+    #1, 0, 1,  # reduced2
+    #0, 1, 1   # reduced3
+  #), byrow = TRUE, ncol = 3)
+  
+  # Determine the index for the true model
+  #model_index <- match(true_model, c("full", "reduced1", "reduced2", "reduced3"))
+  
+  # Apply the inclusion logic
+  #y <- random_effect + epsilon + rowSums(include_matrix[model_index, ] * beta * cbind(x1, x2, x3))
+  
   y <- random_effect + epsilon
   if (true_model == "full" || true_model == "reduced1" || true_model == "reduced2") y <- y + beta[1] * x1
   if (true_model == "full" || true_model == "reduced1" || true_model == "reduced3") y <- y + beta[2] * x2
   if (true_model == "full" || true_model == "reduced2" || true_model == "reduced3") y <- y + beta[3] * x3
   
-  y <- y + 0.5 * x1^2 + 0.5 * sin(x2) + 0.5 * x1 * x2
+  #y <- y + 0.5 * x1^2 + 0.5 * sin(x2) + 0.5 * x1 * x2
   
   outlier_indices <- sample(1:(ni*m), size = round(0.01 * ni * m))
   y[outlier_indices] <- y[outlier_indices] + rnorm(length(outlier_indices), 0, 5)
@@ -83,7 +96,7 @@ set.seed(123)
 num_simulations <- 100
 ni <- 10
 m <- 30
-beta <- c(1, 1, 1)
+beta <- c(1, 0, 1)
 random_effects_var <- 3
 noise_level <- 2
 
@@ -118,4 +131,4 @@ summary_table <- all_results %>%
   summarise(count = n()) %>%
   pivot_wider(names_from = selected_model, values_from = count, values_fill = 0)
 
-print(summary_table)
+summary_table
