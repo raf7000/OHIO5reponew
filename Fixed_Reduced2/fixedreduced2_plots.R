@@ -57,4 +57,50 @@ ggsave("combined_violin_plot.png", plot = combined_violin_plot, width = 12, heig
 combined_bar_plot <- wrap_plots(bar_plots) + plot_layout(ncol = 1)
 ggsave("combined_bar_plot.png", plot = combined_bar_plot, width = 10, height = 12)
 
+# Initialize lists to store plots for num_sims_results_list
+num_sims_violin_plots <- list()
+num_sims_bar_plots <- list()
+
+for (name in names(num_sims_results_list)) {
+  num_sims_all_results <- num_sims_results_list[[name]]
+  
+  bics_long <- pivot_longer(num_sims_all_results, cols = c(bic_full, bic_reduced1, bic_reduced2, bic_reduced3), 
+                            names_to = "model", values_to = "BIC")
+  
+  violin_plot <- ggplot(bics_long, aes(x = true_model, y = BIC, fill = model)) +
+    geom_violin() +
+    facet_wrap(~ BIC_definition) +
+    theme_minimal() +
+    labs(title = paste("BIC Distribution by True Model and Fitted Model -", name),
+         x = "True Model", y = "BIC Value") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+  num_sims_violin_plots[[name]] <- violin_plot
+  
+  bar_plot <- ggplot(num_sims_all_results, aes(x = true_model, fill = selected_model)) +
+    geom_bar(position = "fill") +
+    facet_wrap(~ BIC_definition) +
+    theme_minimal() +
+    labs(title = paste("Model Selection Proportions by True Model -", name),
+         x = "True Model", y = "Proportion",
+         fill = "Selected Model") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+  num_sims_bar_plots[[name]] <- bar_plot
+  
+  summary_table <- num_sims_all_results %>%
+    group_by(BIC_definition, true_model, selected_model) %>%
+    summarise(count = n(), .groups = 'drop') %>%
+    pivot_wider(names_from = selected_model, values_from = count, values_fill = 0)
+  
+  print(paste("Summary for", name))
+  print(summary_table)
+}
+
+combined_num_sims_violin_plot <- wrap_plots(num_sims_violin_plots) + plot_layout(ncol = 1)
+ggsave("combined_num_sims_violin_plot.png", plot = combined_num_sims_violin_plot, width = 12, height = 12)
+
+combined_num_sims_bar_plot <- wrap_plots(num_sims_bar_plots) + plot_layout(ncol = 1)
+ggsave("combined_num_sims_bar_plot.png", plot = combined_num_sims_bar_plot, width = 10, height = 12) 
+
 
