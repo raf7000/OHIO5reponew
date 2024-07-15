@@ -5,6 +5,7 @@ library(patchwork)
 
 # Load simulation results
 results_list <- readRDS("simulation_results_list.rds")
+num_sims_results_list <- readRDS("num_sims_simulation_results_list.rds")
 
 # Initialize lists to store plots
 violin_plots <- list()
