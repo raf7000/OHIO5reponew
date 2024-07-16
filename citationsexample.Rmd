@@ -1,0 +1,16 @@
+---
+title: "citations"
+author: "Syed Rafey Abbas"
+date: "2024-07-09"
+output: pdf_document
+bibliography: citationssummer.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+Idk I think I've successfully managed to do this. [@balding2006wiley]. 
+Have I though?.. [@pinheiro2000mixed]. 
