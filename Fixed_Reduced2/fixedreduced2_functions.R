@@ -4,6 +4,8 @@ library(parallel)
 library(ggplot2)
 library(tidyr)
 library(dplyr)
+library(skewlmm)
+
 
 # Defining the BIC functions
 bic_fitzmaurice <- function(model) {
@@ -40,9 +42,10 @@ simulate_and_fit_models <- function(ni, m, beta, random_effects_var, bic_func, i
     x1 <- rnorm(ni * m)
     x2 <- rnorm(ni * m)
     x3 <- rnorm(ni * m)
+    epsilon = rnorm(ni * m)
     random_effect <- rep(rnorm(m, mean = 0, sd = sqrt(random_effects_var)), each = ni)
     
-    y <- random_effect + beta[1] * x1 + beta[3] * x3 # True model is always reduced2
+    y <- beta[1] * x1 + beta[3] * x3 + rep(random_effect, each = ni) + epsilon # True model is always reduced2
     
     data <- data.frame(y = y, x1 = x1, x2 = x2, x3 = x3, group_id = factor(group_id))
     
@@ -147,5 +150,6 @@ run_simulations_with_user_defined_sims <- function(num_sims_list) {
   
   return(num_sums_results_list)
 }
+
 
 
