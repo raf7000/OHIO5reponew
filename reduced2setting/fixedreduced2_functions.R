@@ -4,10 +4,9 @@ library(parallel)
 library(ggplot2)
 library(tidyr)
 library(dplyr)
-library(skewlmm)
+library(patchwork)
 
-
-# Defining the BIC functions
+# Defining the BIC functions, looking at three definitions 
 bic_fitzmaurice <- function(model) {
   logLik_val <- as.numeric(logLik(model))
   n_params <- length(fixef(model)) + sum(sapply(VarCorr(model), function(x) prod(dim(x))))
@@ -34,119 +33,89 @@ bic_hybrid <- function(model) {
   return(BIC_value)
 }
 
-simulate_and_fit_models <- function(ni, m, beta, random_effects_var, bic_func, i) {
-  tryCatch({
-    message("Starting simulation ", i)
-    # Data generation
-    group_id <- rep(1:m, each = ni)
-    x1 <- rnorm(ni * m)
-    x2 <- rnorm(ni * m)
-    x3 <- rnorm(ni * m)
-    epsilon = rnorm(ni * m)
-    random_effect <- rep(rnorm(m, mean = 0, sd = sqrt(random_effects_var)), each = ni)
-    
-    y <- beta[1] * x1 + beta[3] * x3 + rep(random_effect, each = ni) + epsilon # True model is always reduced2
-    
-    data <- data.frame(y = y, x1 = x1, x2 = x2, x3 = x3, group_id = factor(group_id))
-    
-    # Check for non-finite values before fitting models
-    if (any(!is.finite(y))) {
-      stop("Non-finite values detected in 'y' before fitting models")
-    }
-    
-    # Fit models
-    model_full <- lmer(y ~ x1 + x2 + x3 + (1|group_id), data = data)
-    model_reduced1 <- lmer(y ~ x1 + x2 + (1|group_id), data = data)
-    model_reduced2 <- lmer(y ~ x1 + x3 + (1|group_id), data = data)
-    model_reduced3 <- lmer(y ~ x2 + x3 + (1|group_id), data = data)
-    
-    # Check for convergence
-    if (!is.finite(logLik(model_full)) || !is.finite(logLik(model_reduced1)) || 
-        !is.finite(logLik(model_reduced2)) || !is.finite(logLik(model_reduced3))) {
-      stop("Model did not converge")
-    }
-    
-    # Calculate BIC values
-    bic_full <- bic_func(model_full)
-    bic_reduced1 <- bic_func(model_reduced1)
-    bic_reduced2 <- bic_func(model_reduced2)
-    bic_reduced3 <- bic_func(model_reduced3)
-    
-    # Select best model
-    bics <- c(bic_full, bic_reduced1, bic_reduced2, bic_reduced3)
-    model_names <- c("full", "reduced1", "reduced2", "reduced3")
-    selected_model <- model_names[which.min(bics)]
-    
-    message("Ending simulation ", i)
-    return(data.frame(
-      true_model = "reduced2",
-      selected_model = selected_model,
-      bic_full = bic_full,
-      bic_reduced1 = bic_reduced1,
-      bic_reduced2 = bic_reduced2,
-      bic_reduced3 = bic_reduced3
-    ))
-  }, error = function(e) {
-    message("Error in simulation ", i, ": ", e)
-    return(data.frame(
-      true_model = NA,
-      selected_model = NA,
-      bic_full = NA,
-      bic_reduced1 = NA,
-      bic_reduced2 = NA,
-      bic_reduced3 = NA
-    ))
-  })
+# Data generation function
+generate_data <- function(ni, m, beta, random_effects_var) {
+  group_id <- rep(1:m, each = ni)
+  x1 <- rnorm(ni * m)
+  x2 <- rnorm(ni * m)
+  x3 <- rnorm(ni * m)
+  epsilon <- rnorm(ni * m)
+  random_effect <- rep(rnorm(m, mean = 0, sd = sqrt(random_effects_var)), each = ni)
+  y <- beta[1] * x1 + beta[3] * x3 + rep(random_effect, each = ni) + epsilon
+  
+  data <- data.frame(y = y, x1 = x1, x2 = x2, x3 = x3, group_id = factor(group_id))
+  return(data)
 }
 
-# Run simulations for a single BIC definition
-run_simulation <- function(bic_func, bic_name, num_simulations, ni, m, beta, random_effects_var) {
-  cat("Running simulations for", bic_name, "BIC definition...\n")
-  results <- mclapply(1:num_simulations, function(i) {
-    simulate_and_fit_models(ni, m, beta, random_effects_var, bic_func, i)
-  }, mc.cores = detectCores())
+# Model fitting function
+fit_models <- function(data) {
+  models <- list(
+    full = lmer(y ~ x1 + x2 + x3 + (1|group_id), data = data),
+    reduced1 = lmer(y ~ x1 + x2 + (1|group_id), data = data),
+    reduced2 = lmer(y ~ x1 + x3 + (1|group_id), data = data),
+    reduced3 = lmer(y ~ x2 + x3 + (1|group_id), data = data)
+  )
+  return(models)
+}
+
+# BIC calculation function
+calculate_bic <- function(models, bic_func) {
+  bic_values <- sapply(models, bic_func)
+  return(bic_values)
+}
+
+# Simulate and fit models
+simulate_and_fit_models <- function(ni, m, beta, random_effects_var, i) {
+  message("Starting simulation ", i)
+  data <- generate_data(ni, m, beta, random_effects_var)
+  models <- fit_models(data)
   
-  # Combine results into a single data frame
-  results_df <- do.call(rbind, results)
-  results_df$BIC_definition <- bic_name
+  bic_fitzmaurice_values <- calculate_bic(models, bic_fitzmaurice)
+  bic_normal_values <- calculate_bic(models, bic_normal)
+  bic_hybrid_values <- calculate_bic(models, bic_hybrid)
   
+  selected_model_fitzmaurice <- names(which.min(bic_fitzmaurice_values))
+  selected_model_normal <- names(which.min(bic_normal_values))
+  selected_model_hybrid <- names(which.min(bic_hybrid_values))
+  
+  results_df <- data.frame(
+    true_model = "reduced2",
+    model_name = names(models),
+    bic_fitzmaurice = bic_fitzmaurice_values,
+    bic_normal = bic_normal_values,
+    bic_hybrid = bic_hybrid_values,
+    selected_model_fitzmaurice = selected_model_fitzmaurice,
+    selected_model_normal = selected_model_normal,
+    selected_model_hybrid = selected_model_hybrid,
+    correct_model_fitzmaurice = selected_model_fitzmaurice == "reduced2",
+    correct_model_normal = selected_model_normal == "reduced2",
+    correct_model_hybrid = selected_model_hybrid == "reduced2"
+  )
+  
+  message("Ending simulation ", i)
   return(results_df)
 }
 
-# Function to run simulations for different subject numbers
-run_simulations_for_subject_numbers <- function(subject_numbers) {
+# Function to run multiple simulations
+run_simulation <- function(num_simulations, ni, m, beta, random_effects_var) {
+  cat("Running simulations...\n")
+  results <- mclapply(1:num_simulations, function(i) {
+    simulate_and_fit_models(ni, m, beta, random_effects_var, i)
+  }, mc.cores = detectCores())
+  
+  return(do.call(rbind, results))
+}
+
+# Modified function to run simulations for different subject numbers
+run_simulations_for_subject_numbers <- function(subject_numbers, num_simulations, m, beta, random_effects_var) {
   results_list <- list()
   
   for (ni in subject_numbers) {
-    results_fitzmaurice <- run_simulation(bic_fitzmaurice, "Fitzmaurice", num_simulations, ni, m, beta, random_effects_var)
-    results_normal <- run_simulation(bic_normal, "Normal", num_simulations, ni, m, beta, random_effects_var)
-    results_hybrid <- run_simulation(bic_hybrid, "Hybrid", num_simulations, ni, m, beta, random_effects_var)
-    
-    all_results <- rbind(results_fitzmaurice, results_normal, results_hybrid)
-    all_results <- na.omit(all_results)
-    
-    results_list[[paste0("ni_", ni)]] <- all_results
+    cat(sprintf("\nRunning simulations for subject number ni = %d...\n", ni))
+    results <- run_simulation(num_simulations, ni, m, beta, random_effects_var)
+    results <- na.omit(results)
+    results_list[[paste0("ni_", ni)]] <- results
   }
   
   return(results_list)
-}
-
-# Function to run simulations for different numbers of simulations specified by the user
-run_simulations_with_user_defined_sims <- function(num_sims_list) {
-  num_sums_results_list <- list()
-  
-  for (num_simulations in num_sims_list) {
-    cat(sprintf("\nRunning %d simulations...\n", num_simulations))
-    
-    results_fitzmaurice <- run_simulation(bic_fitzmaurice, "Fitzmaurice", num_simulations, ni, m, beta, random_effects_var)
-    results_normal <- run_simulation(bic_normal, "Normal", num_simulations, ni, m, beta, random_effects_var)
-    results_hybrid <- run_simulation(bic_hybrid, "Hybrid", num_simulations, ni, m, beta, random_effects_var)
-    
-    all_results_num_sims <- rbind(results_fitzmaurice, results_normal, results_hybrid)
-    all_results_num_sims <- na.omit(all_results_num_sims)
-    
-    num_sums_results_list[[paste0("num_sims_", num_simulations)]] <- all_results_num_sims
-  }
-  
-  return(num_sums_results_list)
 }
