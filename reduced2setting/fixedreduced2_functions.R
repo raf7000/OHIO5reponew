@@ -4,6 +4,8 @@ library(parallel)
 library(ggplot2)
 library(tidyr)
 library(dplyr)
+library(skewlmm)
+
 
 # Defining the BIC functions
 bic_fitzmaurice <- function(model) {
@@ -37,12 +39,13 @@ simulate_and_fit_models <- function(ni, m, beta, random_effects_var, bic_func, i
     message("Starting simulation ", i)
     # Data generation
     group_id <- rep(1:m, each = ni)
-    x1 <- rnorm(ni * m, mean = 0, sd = 1)
-    x2 <- rnorm(ni * m, mean = 1, sd = 1)
-    x3 <- rnorm(ni * m, mean = 2, sd = 1)
+    x1 <- rnorm(ni * m)
+    x2 <- rnorm(ni * m)
+    x3 <- rnorm(ni * m)
+    epsilon = rnorm(ni * m)
     random_effect <- rep(rnorm(m, mean = 0, sd = sqrt(random_effects_var)), each = ni)
     
-    y <- random_effect + beta[1] * x1 + beta[3] * x3 # True model is always reduced2
+    y <- beta[1] * x1 + beta[3] * x3 + rep(random_effect, each = ni) + epsilon # True model is always reduced2
     
     data <- data.frame(y = y, x1 = x1, x2 = x2, x3 = x3, group_id = factor(group_id))
     
@@ -128,3 +131,22 @@ run_simulations_for_subject_numbers <- function(subject_numbers) {
   return(results_list)
 }
 
+# Function to run simulations for different numbers of simulations specified by the user
+run_simulations_with_user_defined_sims <- function(num_sims_list) {
+  num_sums_results_list <- list()
+  
+  for (num_simulations in num_sims_list) {
+    cat(sprintf("\nRunning %d simulations...\n", num_simulations))
+    
+    results_fitzmaurice <- run_simulation(bic_fitzmaurice, "Fitzmaurice", num_simulations, ni, m, beta, random_effects_var)
+    results_normal <- run_simulation(bic_normal, "Normal", num_simulations, ni, m, beta, random_effects_var)
+    results_hybrid <- run_simulation(bic_hybrid, "Hybrid", num_simulations, ni, m, beta, random_effects_var)
+    
+    all_results_num_sims <- rbind(results_fitzmaurice, results_normal, results_hybrid)
+    all_results_num_sims <- na.omit(all_results_num_sims)
+    
+    num_sums_results_list[[paste0("num_sims_", num_simulations)]] <- all_results_num_sims
+  }
+  
+  return(num_sums_results_list)
+}
