@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
-```{r}
+```{r, include=FALSE}
 #packages 
 library(lme4)
 library(MASS)
@@ -120,22 +120,22 @@ simulate_and_fit_models <- function(ni, m, beta, random_effects_var, i) {
 
 ```{r}
 # Function to run multiple simulations
-run_simulation <- function(num_simulations, ni, m, beta, random_effects_var) {
+run_simulation <- function(num_simulations, ni, m, beta, random_effects_var, ncores = detectCores()) {
   cat("Running simulations...\n")
   results <- mclapply(1:num_simulations, function(i) {
     simulate_and_fit_models(ni, m, beta, random_effects_var, i)
-  }, mc.cores = detectCores())
+  }, mc.cores = ncores)
   
   return(do.call(rbind, results))
 }
 
 # Modified function to run simulations for different subject numbers
-run_simulations_for_subject_numbers <- function(subject_numbers, num_simulations, m, beta, random_effects_var) {
+run_simulations_for_subject_numbers <- function(subject_numbers, num_simulations, m, beta, random_effects_var, ncores = detectCores()) {
   results_list <- list()
   
   for (ni in subject_numbers) {
     cat(sprintf("\nRunning simulations for subject number ni = %d...\n", ni))
-    results <- run_simulation(num_simulations, ni, m, beta, random_effects_var)
+    results <- run_simulation(num_simulations, ni, m, beta, random_effects_var, ncores = ncores)
     results <- na.omit(results)
     results_list[[paste0("ni_", ni)]] <- results
   }
@@ -145,7 +145,7 @@ run_simulations_for_subject_numbers <- function(subject_numbers, num_simulations
 
 ```
 
-```{r}
+```{r, eval=FALSE}
 # Parameters for the simulation
 set.seed(123)
 num_simulations <- 100
@@ -155,11 +155,11 @@ random_effects_var <- 1
 subject_numbers <- c(10, 30, 50)
 
 # Run simulations and save results
-results <- run_simulations_for_subject_numbers(subject_numbers, num_simulations, m, beta, random_effects_var)
+results <- run_simulations_for_subject_numbers(subject_numbers, num_simulations, m, beta, random_effects_var, ncores = 1) # defined ncores because mclapply does not work on Windows
 saveRDS(results, file = "simulation_results_list.rds")
 ```
 
-```{r}
+```{r, fig.height=8}
 
 results_list <- readRDS("simulation_results_list.rds")
 
@@ -171,15 +171,14 @@ for (name in names(results_list)) {
   all_results <- results_list[[name]]
   
   # Convert BIC columns to long format for plotting
-  bics_long <- pivot_longer(all_results, cols = starts_with("bic_"), 
-                            names_to = "BIC_definition", values_to = "BIC")
+  bics_long <- pivot_longer(all_results, cols = starts_with("bic_"), names_to = "BIC_definition", values_to = "BIC")
   
   # Convert selected model columns to long format for plotting
   selected_models_long <- pivot_longer(all_results, cols = starts_with("selected_model_"), 
                                        names_to = "BIC_definition", values_to = "selected_model")
   
   # Violin plot for BIC values
-  violin_plot <- ggplot(bics_long, aes(x = model_name, y = BIC, fill = model_name)) +
+  violin_plot <- ggplot(bics_long, aes(x = model_name, y = BIC)) +
     geom_violin() +
     facet_wrap(~ BIC_definition) +
     theme_minimal() +
@@ -191,7 +190,7 @@ for (name in names(results_list)) {
   violin_plots[[name]] <- violin_plot
   
   # Bar plot for selected models
-  bar_plot <- ggplot(selected_models_long, aes(x = true_model, fill = selected_model)) +
+  bar_plot <- ggplot(selected_models_long, aes(x = BIC_definition, fill = selected_model)) +
     geom_bar(position = "fill", width = 1) +  # Make sure bars are adjacent
     facet_wrap(~ BIC_definition) +
     theme_minimal() +
@@ -219,9 +218,30 @@ combined_bar_plot <- wrap_plots(bar_plots, ncol = 1) & theme(plot.margin = margi
 
 # Display combined plots
 print(combined_violin_plot)
-print(combined_bar_plot)
+#print(combined_bar_plot)
 
 ```
 
+## BIC proportion plot
 
+```{r}
+all_results <- results_list %>% bind_rows(.id = "ni")
+row.names(all_results) <- NULL
+
+selected_models_long <- pivot_longer(all_results, 
+                                     cols =starts_with("selected_model_"), names_to = "BIC_definition", values_to = "selected_model") %>% 
+  mutate(BIC_definition = factor(BIC_definition, 
+                                 levels = c("selected_model_fitzmaurice", "selected_model_normal", "selected_model_hybrid"), 
+                                 labels = c("BIC_f", "BIC_s","BIC_h")))
+
+ggplot(selected_models_long, aes(x = BIC_definition, fill = selected_model)) +
+    geom_bar() +  
+    facet_wrap(~ ni) +
+    theme_minimal() +
+    labs(title = "Model Selection Proportions",
+         x = "", y = "Proportion",
+         fill = "Selected Model") #+
+    #theme(axis.text.x = element_text(angle = 45, hjust = 1),
+    #      plot.margin = margin(0, 0, 0, 0))
+```
 
