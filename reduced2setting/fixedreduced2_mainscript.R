@@ -10,9 +10,7 @@ random_effects_var <- 1
 subject_numbers <- c(10, 30, 50)
 
 # Run simulations and save results
-results <- run_simulations_for_subject_numbers(subject_numbers)
+results <- run_simulations_for_subject_numbers(subject_numbers, num_simulations, m, beta, random_effects_var)
 saveRDS(results, file = "simulation_results_list.rds")
-
-
 
 
