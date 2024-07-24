@@ -71,7 +71,7 @@ generate_data <- function(ni, m, beta, random_effects_var) {
   random_slope <- rep(random_slopes, each = ni) * time 
   
   # Generate response variable y
-  y <- beta[1] * x1 + beta[2] * x2 + beta[3] * x3 + random_intercept + random_slope + epsilon
+  y <- beta[1] * time + beta[2] * I(time^2) + beta[3] * x1 + beta[4] * x2 + beta[5] * x3 + random_intercept + random_slope + epsilon
   
   data <- data.frame(y = y, x1 = x1, x2 = x2, x3 = x3, time = time, group_id = factor(group_id))
   return(data)
@@ -80,9 +80,9 @@ generate_data <- function(ni, m, beta, random_effects_var) {
 # Model fitting function
 fit_models <- function(data) {
   models <- list(
-    full = lmer(y ~ 0+x1 + x2 + x3 + (1 + time + I(time^2) || group_id), data = data),
-    reduced1 = lmer(y ~0+ x1 + x2 + x3 + (1 | group_id), data = data),
-    reduced2 = lmer(y ~ 0+x1 + x2 + x3 + (1 + time || group_id), data = data)
+    full = lmer(y ~ time + I(time^2) + x1 + x2 + x3  + (1 + time + I(time^2) || group_id), data = data),
+    reduced1 = lmer(y ~ time + I(time^2) + x1 + x2 + x3  + (1 | group_id), data = data),
+    reduced2 = lmer(y ~ time + I(time^2) + x1 + x2 + x3  + (1 + time || group_id), data = data)
   )
   return(models)
 }
@@ -166,7 +166,7 @@ run_simulations_for_subject_numbers <- function(subject_numbers, num_simulations
 # Parameters for the simulation
 set.seed(123)
 num_simulations <- 100
-beta <- c(1, 1, 1)
+beta <- c(1, 1, 1, 1, 1)
 random_effects_var <- c(1, 5)
 subject_numbers <- c(10, 30, 50)
 ni = 10
@@ -264,4 +264,3 @@ ggplot(selected_models_long, aes(x = BIC_definition, fill = selected_model)) +
          fill = "Selected Model")
 
 ```
-
