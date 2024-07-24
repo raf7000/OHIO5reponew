@@ -56,7 +56,7 @@ bic_hybrid <- function(model) {
 # Data generation function
 generate_data <- function(ni, m, beta, random_effects_var) {
   group_id <- rep(1:m, each = ni)
-  time <- rep(1:ni, m)
+  time <- rep(1:ni, times = m)
   x1 <- rnorm(ni * m)
   x2 <- rnorm(ni * m)
   x3 <- rnorm(ni * m)
@@ -66,9 +66,11 @@ generate_data <- function(ni, m, beta, random_effects_var) {
   random_intercepts <- rnorm(m, mean = 0, sd = sqrt(random_effects_var[1]))
   random_slopes <- rnorm(m, mean = 0, sd = sqrt(random_effects_var[2]))
   
+  # Assign random effects to each group
   random_intercept <- rep(random_intercepts, each = ni)
-  random_slope <- rep(random_slopes, each = ni) 
+  random_slope <- rep(random_slopes, each = ni) * time 
   
+  # Generate response variable y
   y <- beta[1] * x1 + beta[2] * x2 + beta[3] * x3 + random_intercept + random_slope + epsilon
   
   data <- data.frame(y = y, x1 = x1, x2 = x2, x3 = x3, time = time, group_id = factor(group_id))
@@ -78,9 +80,9 @@ generate_data <- function(ni, m, beta, random_effects_var) {
 # Model fitting function
 fit_models <- function(data) {
   models <- list(
-    full = lmer(y ~ x1 + x2 + x3 + (1 + time + I(time^2) | group_id), data = data),
-    reduced1 = lmer(y ~ x1 + x2 + x3 + (1 | group_id), data = data),
-    reduced2 = lmer(y ~ x1 + x2 + x3 + (1 + time | group_id), data = data)
+    full = lmer(y ~ 0+x1 + x2 + x3 + (1 + time + I(time^2) || group_id), data = data),
+    reduced1 = lmer(y ~0+ x1 + x2 + x3 + (1 | group_id), data = data),
+    reduced2 = lmer(y ~ 0+x1 + x2 + x3 + (1 + time || group_id), data = data)
   )
   return(models)
 }
@@ -106,16 +108,22 @@ simulate_and_fit_models <- function(ni, m, beta, random_effects_var, i) {
   selected_model_hybrid <- names(which.min(bic_hybrid_values))
   
   results_df <- data.frame(
-    true_model = "reduced2",
-    model_name = names(models),
-    bic_fitzmaurice = bic_fitzmaurice_values,
-    bic_normal = bic_normal_values,
-    bic_hybrid = bic_hybrid_values,
+    simulation = i,
+    ni = ni,
+    bic_fitzmaurice_full = bic_fitzmaurice_values["full"],
+    bic_fitzmaurice_reduced1 = bic_fitzmaurice_values["reduced1"],
+    bic_fitzmaurice_reduced2 = bic_fitzmaurice_values["reduced2"],
+    bic_normal_full = bic_normal_values["full"],
+    bic_normal_reduced1 = bic_normal_values["reduced1"],
+    bic_normal_reduced2 = bic_normal_values["reduced2"],
+    bic_hybrid_full = bic_hybrid_values["full"],
+    bic_hybrid_reduced1 = bic_hybrid_values["reduced1"],
+    bic_hybrid_reduced2 = bic_hybrid_values["reduced2"],
     selected_model_fitzmaurice = selected_model_fitzmaurice,
-    selected_model_normal = selected_model_normal,
-    selected_model_hybrid = selected_model_hybrid,
     correct_model_fitzmaurice = selected_model_fitzmaurice == "reduced2",
+    selected_model_normal = selected_model_normal,
     correct_model_normal = selected_model_normal == "reduced2",
+    selected_model_hybrid = selected_model_hybrid,
     correct_model_hybrid = selected_model_hybrid == "reduced2"
   )
   
@@ -124,7 +132,6 @@ simulate_and_fit_models <- function(ni, m, beta, random_effects_var, i) {
 }
 
 ```
-
 
 ```{r}
 # Function to run multiple simulations
@@ -138,14 +145,14 @@ run_simulation <- function(num_simulations, ni, m, beta, random_effects_var, nco
 }
 
 # Modified function to run simulations for different subject numbers
-run_simulations_for_subject_numbers <- function(subject_numbers, num_simulations, m, beta, random_effects_var, ncores = detectCores()) {
+run_simulations_for_subject_numbers <- function(subject_numbers, num_simulations, ni, beta, random_effects_var, ncores = detectCores()) {
   results_list <- list()
   
-  for (ni in subject_numbers) {
-    cat(sprintf("\nRunning simulations for subject number ni = %d...\n", ni))
-    results <- run_simulation(num_simulations, ni, m, beta, random_effects_var, ncores = ncores)
+  for (m in subject_numbers) {
+    cat(sprintf("\nRunning simulations for subject numbers = %d...\n", m))
+    results <- run_simulation(num_simulations = num_simulations, ni = ni, m = m, beta = beta,random_effects_var = random_effects_var, ncores = ncores)
     results <- na.omit(results)
-    results_list[[paste0("ni_", ni)]] <- results
+    results_list[[paste0("m_", m)]] <- results
   }
   
   return(results_list)
@@ -157,15 +164,20 @@ run_simulations_for_subject_numbers <- function(subject_numbers, num_simulations
 # Parameters for the simulation
 set.seed(123)
 num_simulations <- 100
-m <- 30
 beta <- c(1, 1, 1)
-random_effects_var <- c(1, 0.5)
+random_effects_var <- c(1, 5)
 subject_numbers <- c(10, 30, 50)
+ni = 10
 
 # Run simulations and save results
-results <- run_simulations_for_subject_numbers(subject_numbers, num_simulations, m, beta, random_effects_var, ncores = 1) # defined ncores because mclapply does not work on Windows
+results <- run_simulations_for_subject_numbers(subject_numbers = subject_numbers, num_simulations = num_simulations, ni = ni, beta = beta, random_effects_var, ncores = 1) # defined ncores because mclapply does not work on Windows
+
 saveRDS(results, file = "simulation_results_list.rds")
 
+results %>% bind_rows(.id = "m") %>% group_by(m) %>% summarise(mean(correct_model_normal), mean(correct_model_fitzmaurice), mean(correct_model_hybrid))
+
+
+results %>% bind_rows(.id = "m") %>% group_by(m) %>% count(selected_model_normal)
 ```
 
 ```{r, fig.height=8}
@@ -250,4 +262,3 @@ ggplot(selected_models_long, aes(x = BIC_definition, fill = selected_model)) +
          fill = "Selected Model")
 
 ```
-
