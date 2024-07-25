@@ -144,5 +144,4 @@ summary_table <- all_results %>%
 
 print(summary_table)
 
-  
- 
+
