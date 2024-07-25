@@ -60,7 +60,7 @@ generate_data <- function(ni, m, beta, random_effects_var) {
   x1 <- rnorm(ni * m)
   x2 <- rnorm(ni * m)
   x3 <- rnorm(ni * m)
-  epsilon <- rnorm(ni * m)
+  epsilon <- rnorm(ni * m, sd = 5)
   
   # Generate random effects
   random_intercepts <- rnorm(m, mean = 0, sd = sqrt(random_effects_var[1]))
@@ -73,16 +73,16 @@ generate_data <- function(ni, m, beta, random_effects_var) {
   # Generate response variable y
   y <- beta[1] * time + beta[2] * I(time^2) + beta[3] * x1 + beta[4] * x2 + beta[5] * x3 + random_intercept + random_slope + epsilon
   
-  data <- data.frame(y = y, x1 = x1, x2 = x2, x3 = x3, time = time, group_id = factor(group_id))
+  data <- data.frame(y = as.numeric(y), x1 = x1, x2 = x2, x3 = x3, time = time, group_id = factor(group_id))
   return(data)
 }
 
 # Model fitting function
 fit_models <- function(data) {
   models <- list(
-    full = lmer(y ~ time + I(time^2) + x1 + x2 + x3  + (1 + time + I(time^2) || group_id), data = data),
-    reduced1 = lmer(y ~ time + I(time^2) + x1 + x2 + x3  + (1 | group_id), data = data),
-    reduced2 = lmer(y ~ time + I(time^2) + x1 + x2 + x3  + (1 + time || group_id), data = data)
+    full = lmer(y ~ 0+time + I(time^2) + x1 + x2 + x3  + (1 + time + I(time^2) || group_id), data = data, REML = FALSE),
+    reduced1 = lmer(y ~ 0+time + I(time^2) + x1 + x2 + x3  + (1 | group_id), data = data, REML = FALSE),
+    reduced2 = lmer(y ~ 0+time + I(time^2) + x1 + x2 + x3  + (1 + time || group_id), data = data, REML = FALSE)
   )
   return(models)
 }
@@ -166,21 +166,39 @@ run_simulations_for_subject_numbers <- function(subject_numbers, num_simulations
 # Parameters for the simulation
 set.seed(123)
 num_simulations <- 100
-beta <- c(1, 1, 1, 1, 1)
-random_effects_var <- c(1, 5)
+beta <- c(10, 10, 1, 1, 1)
+random_effects_var <- c(1, 1)
 subject_numbers <- c(10, 30, 50)
-ni = 10
+ni = 5
 
 # Run simulations and save results
 results <- run_simulations_for_subject_numbers(subject_numbers = subject_numbers, num_simulations = num_simulations, ni = ni, beta = beta, random_effects_var, ncores = 1) # defined ncores because mclapply does not work on Windows
 
 saveRDS(results, file = "simulation_results_list.rds")
 
-results %>% bind_rows(.id = "m") %>% group_by(m) %>% summarise(mean(correct_model_normal), mean(correct_model_fitzmaurice), mean(correct_model_hybrid))
+results %>% bind_rows(.id = "m") %>% group_by(m) %>% summarise(n = mean(correct_model_normal), f = mean(correct_model_fitzmaurice), h = mean(correct_model_hybrid))
 
 
 results %>% bind_rows(.id = "m") %>% group_by(m) %>% count(selected_model_normal)
+results %>% bind_rows(.id = "m") %>% group_by(m) %>% count(selected_model_fitzmaurice)
+results %>% bind_rows(.id = "m") %>% group_by(m) %>% count(selected_model_hybrid)
 ```
+
+
+```{r example, eval=FALSE}
+## looking at an example
+data <- generate_data(ni = ni, m=10, beta = beta, random_effects_var = random_effects_var)
+data %>% ggplot(aes(x = time, y = y, group=group_id)) + geom_line() + theme_bw()
+
+full = lmer(y ~ 0+ time + I(time^2) + x1 + x2 + x3  + (1 + time + I(time^2) || group_id), data = data, REML = FALSE)
+full
+
+bic_normal(full)
+BIC(full)
+# why are they different?
+
+```
+
 
 ```{r, fig.height=8}
 results_list <- readRDS("simulation_results_list.rds")
@@ -217,7 +235,7 @@ for (name in names(results_list)) {
     facet_wrap(~ BIC_definition) +
     theme_minimal() +
     labs(title = paste("Model Selection Proportions by True Model -", name),
-         x = "True Model", y = "Proportion",
+         y = "Proportion",
          fill = "Selected Model") +
     theme(axis.text.x = element_text(angle = 45, hjust = 1),
           plot.margin = margin(0, 0, 0, 0))
@@ -226,7 +244,7 @@ for (name in names(results_list)) {
   
   # Print summary
   summary_table <- selected_models_long %>%
-    group_by(BIC_definition, true_model, selected_model) %>%
+    group_by(BIC_definition, selected_model) %>%
     summarise(count = n(), .groups = 'drop') %>%
     pivot_wider(names_from = selected_model, values_from = count, values_fill = list(count = 0))
   
@@ -246,6 +264,8 @@ print(combined_violin_plot)
 
 
 ```{r}
+results_list <- readRDS("simulation_results_list.rds")
+
 all_results <- results_list %>% bind_rows(.id = "ni")
 row.names(all_results) <- NULL
 
@@ -263,4 +283,7 @@ ggplot(selected_models_long, aes(x = BIC_definition, fill = selected_model)) +
          x = "", y = "Proportion",
          fill = "Selected Model")
 
+
+
+#### check REML, make plot to see data distribution, and check criteria implementation
 ```
