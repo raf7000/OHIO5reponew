@@ -26,7 +26,7 @@ library(patchwork)
 # Defining the BIC functions, looking at three definitions 
 bic_fitzmaurice <- function(model) {
   logLik_val <- as.numeric(logLik(model))
-  n_params <- length(fixef(model)) + sum(sapply(VarCorr(model), function(x) prod(dim(x))))
+  n_params <- length(fixef(model)) + sum(sapply(VarCorr(model), function(x) prod(dim(x)))) + 1 
   N <- length(unique(model@frame$group_id)) # Number of subjects
   BIC_value <- -2 * logLik_val + log(N) * n_params
   return(BIC_value)
@@ -34,7 +34,7 @@ bic_fitzmaurice <- function(model) {
 
 bic_normal <- function(model) {
   logLik_val <- as.numeric(logLik(model))
-  n_params <- length(fixef(model)) + sum(sapply(VarCorr(model), function(x) prod(dim(x))))
+  n_params <- length(fixef(model)) + sum(sapply(VarCorr(model), function(x) prod(dim(x)))) + 1 #residual standard deviation parameter
   N <- nrow(model@frame) # Total number of observations
   BIC_value <- -2 * logLik_val + log(N) * n_params
   return(BIC_value)
@@ -196,6 +196,7 @@ full
 bic_normal(full)
 BIC(full)
 # why are they different?
+#they are the same now since we have the correct number of parameters 
 
 ```
 
@@ -205,20 +206,51 @@ results_list <- readRDS("simulation_results_list.rds")
 
 # Initialize lists to store plots
 violin_plots <- list()
-bar_plots <- list()
 
 for (name in names(results_list)) {
   all_results <- results_list[[name]]
   
   # Convert BIC columns to long format for plotting
-  bics_long <- pivot_longer(all_results, cols = starts_with("bic_"), names_to = "BIC_definition", values_to = "BIC")
+  bics_long <- pivot_longer(all_results, cols = starts_with("bic_"), names_to = "BIC_definition_model", values_to = "BIC")
   
-  # Convert selected model columns to long format for plotting
-  selected_models_long <- pivot_longer(all_results, cols = starts_with("selected_model_"), 
-                                       names_to = "BIC_definition", values_to = "selected_model")
+  # Split BIC_definition_model into BIC_definition and model_name
+  bics_long <- bics_long %>%
+    separate(BIC_definition_model, into = c("BIC_definition", "model_name"), sep = "_(?=[^_]+$)")
   
-  # Violin plot for BIC values
-  violin_plot <- ggplot(bics_long, aes(x = model_name, y = BIC)) +
+  # Filter for one BIC definition for an individual plot
+  bic_def_example <- bics_long %>% filter(BIC_definition == "bic_normal")
+  
+  # Violin plot for BIC values (one definition)
+  violin_plot <- ggplot(bic_def_example, aes(x = model_name, y = BIC, fill = model_name)) +
+    geom_violin() +
+    theme_minimal() +
+    labs(title = paste("BIC Distribution for BIC Definition - bic_normal", name),
+         x = "Model", y = "BIC Value") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          plot.margin = margin(0, 0, 0, 0))
+  
+  violin_plots[[name]] <- violin_plot
+}
+
+# Combine all violin plots for individual BIC definitions using patchwork
+combined_violin_plot <- wrap_plots(violin_plots, ncol = 1) & theme(plot.margin = margin(0, 0, 0, 0))
+
+# Display combined plots for one BIC definition
+print(combined_violin_plot)
+
+# Now, create combined plots for all BIC definitions
+for (name in names(results_list)) {
+  all_results <- results_list[[name]]
+  
+  # Convert BIC columns to long format for plotting
+  bics_long <- pivot_longer(all_results, cols = starts_with("bic_"), names_to = "BIC_definition_model", values_to = "BIC")
+  
+  # Split BIC_definition_model into BIC_definition and model_name
+  bics_long <- bics_long %>%
+    separate(BIC_definition_model, into = c("BIC_definition", "model_name"), sep = "_(?=[^_]+$)")
+  
+  # Violin plot for BIC values (all definitions)
+  violin_plot <- ggplot(bics_long, aes(x = model_name, y = BIC, fill = model_name)) +
     geom_violin() +
     facet_wrap(~ BIC_definition) +
     theme_minimal() +
@@ -228,37 +260,14 @@ for (name in names(results_list)) {
           plot.margin = margin(0, 0, 0, 0))
   
   violin_plots[[name]] <- violin_plot
-  
-  # Bar plot for selected models
-  bar_plot <- ggplot(selected_models_long, aes(x = BIC_definition, fill = selected_model)) +
-    geom_bar(position = "fill", width = 1) +  # Make sure bars are adjacent
-    facet_wrap(~ BIC_definition) +
-    theme_minimal() +
-    labs(title = paste("Model Selection Proportions by True Model -", name),
-         y = "Proportion",
-         fill = "Selected Model") +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1),
-          plot.margin = margin(0, 0, 0, 0))
-  
-  bar_plots[[name]] <- bar_plot
-  
-  # Print summary
-  summary_table <- selected_models_long %>%
-    group_by(BIC_definition, selected_model) %>%
-    summarise(count = n(), .groups = 'drop') %>%
-    pivot_wider(names_from = selected_model, values_from = count, values_fill = list(count = 0))
-  
-  print(paste("Summary for", name))
-  print(summary_table)
 }
 
-# Combine all violin plots using patchwork
-combined_violin_plot <- wrap_plots(violin_plots, ncol = 1) & theme(plot.margin = margin(0, 0, 0, 0))
-combined_bar_plot <- wrap_plots(bar_plots, ncol = 1) & theme(plot.margin = margin(0, 0, 0, 0))
+# Combine all violin plots for all BIC definitions using patchwork
+combined_violin_plot_all <- wrap_plots(violin_plots, ncol = 1) & theme(plot.margin = margin(0, 0, 0, 0))
 
-# Display combined plots
-print(combined_violin_plot)
-#print(combined_bar_plot)
+# Display combined plots for all BIC definitions
+print(combined_violin_plot_all)
+
 
 ```
 
@@ -286,4 +295,6 @@ ggplot(selected_models_long, aes(x = BIC_definition, fill = selected_model)) +
 
 
 #### check REML, make plot to see data distribution, and check criteria implementation
+#fixed criteria to include correct number of parameters 
 ```
+
