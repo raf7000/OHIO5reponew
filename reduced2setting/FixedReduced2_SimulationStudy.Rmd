@@ -26,7 +26,7 @@ library(patchwork)
 # Defining the BIC functions, looking at three definitions 
 bic_fitzmaurice <- function(model) {
   logLik_val <- as.numeric(logLik(model))
-  n_params <- length(fixef(model)) + sum(sapply(VarCorr(model), function(x) prod(dim(x))))
+  n_params <- length(fixef(model)) + sum(sapply(VarCorr(model), function(x) prod(dim(x)))) + 1
   N <- length(unique(model@frame$group_id)) # Number of subjects
   BIC_value <- -2 * logLik_val + log(N) * n_params
   return(BIC_value)
@@ -34,7 +34,7 @@ bic_fitzmaurice <- function(model) {
 
 bic_normal <- function(model) {
   logLik_val <- as.numeric(logLik(model))
-  n_params <- length(fixef(model)) + sum(sapply(VarCorr(model), function(x) prod(dim(x))))
+  n_params <- length(fixef(model)) + sum(sapply(VarCorr(model), function(x) prod(dim(x)))) + 1
   N <- nrow(model@frame) # Total number of observations
   BIC_value <- -2 * logLik_val + log(N) * n_params
   return(BIC_value)
@@ -60,19 +60,19 @@ generate_data <- function(ni, m, beta, random_effects_var) {
   x3 <- rnorm(ni * m)
   epsilon <- rnorm(ni * m)
   random_effect <- rep(rnorm(m, mean = 0, sd = sqrt(random_effects_var)), each = ni)
-  y <- beta[1] * x1 + beta[3] * x3 + rep(random_effect, each = ni) + epsilon
+  y <- beta[1] * x1 + beta[3] * x3 + random_effect + epsilon
   
-  data <- data.frame(y = y, x1 = x1, x2 = x2, x3 = x3, group_id = factor(group_id))
+  data <- data.frame(y = as.numeric(y), x1 = x1, x2 = x2, x3 = x3, group_id = factor(group_id))
   return(data)
 }
 
 # Model fitting function
 fit_models <- function(data) {
   models <- list(
-    full = lmer(y ~ x1 + x2 + x3 + (1|group_id), data = data),
-    reduced1 = lmer(y ~ x1 + x2 + (1|group_id), data = data),
-    reduced2 = lmer(y ~ x1 + x3 + (1|group_id), data = data),
-    reduced3 = lmer(y ~ x2 + x3 + (1|group_id), data = data)
+    full = lmer(y ~ x1 + x2 + x3 + (1|group_id), data = data, REML = FALSE),
+    reduced1 = lmer(y ~ x1 + x2 + (1|group_id), data = data, REML = FALSE),
+    reduced2 = lmer(y ~ x1 + x3 + (1|group_id), data = data, REML = FALSE),
+    reduced3 = lmer(y ~ x2 + x3 + (1|group_id), data = data, REML = FALSE)
   )
   return(models)
 }
@@ -98,16 +98,25 @@ simulate_and_fit_models <- function(ni, m, beta, random_effects_var, i) {
   selected_model_hybrid <- names(which.min(bic_hybrid_values))
   
   results_df <- data.frame(
-    true_model = "reduced2",
-    model_name = names(models),
-    bic_fitzmaurice = bic_fitzmaurice_values,
-    bic_normal = bic_normal_values,
-    bic_hybrid = bic_hybrid_values,
+    simulation = i,
+    ni = ni,
+    bic_fitzmaurice_full = bic_fitzmaurice_values["full"],
+    bic_fitzmaurice_reduced1 = bic_fitzmaurice_values["reduced1"],
+    bic_fitzmaurice_reduced2 = bic_fitzmaurice_values["reduced2"],
+    bic_fitzmaurice_reduced3 = bic_fitzmaurice_values["reduced3"],
+    bic_normal_full = bic_normal_values["full"],
+    bic_normal_reduced1 = bic_normal_values["reduced1"],
+    bic_normal_reduced2 = bic_normal_values["reduced2"],
+     bic_normal_reduced3 = bic_normal_values["reduced3"],
+    bic_hybrid_full = bic_hybrid_values["full"],
+    bic_hybrid_reduced1 = bic_hybrid_values["reduced1"],
+    bic_hybrid_reduced2 = bic_hybrid_values["reduced2"],
+    bic_hybrid_reduced3 = bic_hybrid_values["reduced3"],
     selected_model_fitzmaurice = selected_model_fitzmaurice,
-    selected_model_normal = selected_model_normal,
-    selected_model_hybrid = selected_model_hybrid,
     correct_model_fitzmaurice = selected_model_fitzmaurice == "reduced2",
+    selected_model_normal = selected_model_normal,
     correct_model_normal = selected_model_normal == "reduced2",
+    selected_model_hybrid = selected_model_hybrid,
     correct_model_hybrid = selected_model_hybrid == "reduced2"
   )
   
@@ -119,7 +128,6 @@ simulate_and_fit_models <- function(ni, m, beta, random_effects_var, i) {
 
 
 ```{r}
-# Function to run multiple simulations
 run_simulation <- function(num_simulations, ni, m, beta, random_effects_var, ncores = detectCores()) {
   cat("Running simulations...\n")
   results <- mclapply(1:num_simulations, function(i) {
@@ -130,14 +138,14 @@ run_simulation <- function(num_simulations, ni, m, beta, random_effects_var, nco
 }
 
 # Modified function to run simulations for different subject numbers
-run_simulations_for_subject_numbers <- function(subject_numbers, num_simulations, m, beta, random_effects_var, ncores = detectCores()) {
+run_simulations_for_subject_numbers <- function(subject_numbers, num_simulations, ni, beta, random_effects_var, ncores = detectCores()) {
   results_list <- list()
   
-  for (ni in subject_numbers) {
-    cat(sprintf("\nRunning simulations for subject number ni = %d...\n", ni))
-    results <- run_simulation(num_simulations, ni, m, beta, random_effects_var, ncores = ncores)
+  for (m in subject_numbers) {
+    cat(sprintf("\nRunning simulations for subject numbers = %d...\n", m))
+    results <- run_simulation(num_simulations = num_simulations, ni = ni, m = m, beta = beta,random_effects_var = random_effects_var, ncores = ncores)
     results <- na.omit(results)
-    results_list[[paste0("ni_", ni)]] <- results
+    results_list[[paste0("m_", m)]] <- results
   }
   
   return(results_list)
@@ -146,39 +154,90 @@ run_simulations_for_subject_numbers <- function(subject_numbers, num_simulations
 ```
 
 ```{r, eval=FALSE}
-# Parameters for the simulation
 set.seed(123)
 num_simulations <- 100
-m <- 30
-beta <- c(1, 0, 1)
-random_effects_var <- 1
+beta <- c(1, 1, 1)
+random_effects_var <- c(1)
 subject_numbers <- c(10, 30, 50)
+ni = 5
 
 # Run simulations and save results
-results <- run_simulations_for_subject_numbers(subject_numbers, num_simulations, m, beta, random_effects_var, ncores = 1) # defined ncores because mclapply does not work on Windows
+results <- run_simulations_for_subject_numbers(subject_numbers = subject_numbers, num_simulations = num_simulations, ni = ni, beta = beta, random_effects_var, ncores = 1) # defined ncores because mclapply does not work on Windows
+
 saveRDS(results, file = "simulation_results_list.rds")
+
+saveRDS(results, file = "simulation_results_list.rds")
+
+results %>% bind_rows(.id = "m") %>% group_by(m) %>% summarise(n = mean(correct_model_normal), f = mean(correct_model_fitzmaurice), h = mean(correct_model_hybrid))
+
+
+results %>% bind_rows(.id = "m") %>% group_by(m) %>% count(selected_model_normal)
+results %>% bind_rows(.id = "m") %>% group_by(m) %>% count(selected_model_fitzmaurice)
+results %>% bind_rows(.id = "m") %>% group_by(m) %>% count(selected_model_hybrid)
 ```
 
 ```{r, fig.height=8}
-
 results_list <- readRDS("simulation_results_list.rds")
 
 # Initialize lists to store plots
 violin_plots <- list()
-bar_plots <- list()
+
+bic_columns <- c("bic_fitzmaurice_full", "bic_fitzmaurice_reduced1", "bic_fitzmaurice_reduced2", "bic_fitzmaurice_reduced3",
+                 "bic_normal_full", "bic_normal_reduced1", "bic_normal_reduced2", "bic_normal_reduced3",
+                 "bic_hybrid_full", "bic_hybrid_reduced1", "bic_hybrid_reduced2", "bic_hybrid_reduced3")
+
+extract_model_name <- function(bic_name) {
+  sub("bic_\\w+_", "", bic_name)
+}
 
 for (name in names(results_list)) {
   all_results <- results_list[[name]]
   
   # Convert BIC columns to long format for plotting
-  bics_long <- pivot_longer(all_results, cols = starts_with("bic_"), names_to = "BIC_definition", values_to = "BIC")
+  bics_long <- pivot_longer(all_results, cols = all_of(bic_columns), names_to = "BIC_definition_model", values_to = "BIC")
   
-  # Convert selected model columns to long format for plotting
-  selected_models_long <- pivot_longer(all_results, cols = starts_with("selected_model_"), 
-                                       names_to = "BIC_definition", values_to = "selected_model")
+  # Extract BIC_definition and model_name
+  bics_long <- bics_long %>%
+    mutate(BIC_definition = sub("_(full|reduced1|reduced2|reduced3)$", "", BIC_definition_model),
+           model_name = extract_model_name(BIC_definition_model))
   
-  # Violin plot for BIC values
-  violin_plot <- ggplot(bics_long, aes(x = model_name, y = BIC)) +
+  # Filter for one BIC definition for an individual plot
+  bic_def_example <- bics_long %>% filter(BIC_definition == "bic_normal")
+  
+  # Violin plot for BIC values (one definition)
+  violin_plot <- ggplot(bic_def_example, aes(x = model_name, y = BIC)) +
+    geom_violin() +
+    theme_minimal() +
+    labs(title = paste("BIC Distribution for BIC Definition - bic_normal", name),
+         x = "Model", y = "BIC Value") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          plot.margin = margin(0, 0, 0, 0))
+  
+  violin_plots[[name]] <- violin_plot
+}
+
+# Combine all violin plots for individual BIC definitions using patchwork
+combined_violin_plot <- wrap_plots(violin_plots, ncol = 1) & theme(plot.margin = margin(0, 0, 0, 0))
+
+# Display combined plots for one BIC definition
+print(combined_violin_plot)
+
+# Now, create combined plots for all BIC definitions
+violin_plots_all <- list()
+
+for (name in names(results_list)) {
+  all_results <- results_list[[name]]
+  
+  # Convert BIC columns to long format for plotting
+  bics_long <- pivot_longer(all_results, cols = all_of(bic_columns), names_to = "BIC_definition_model", values_to = "BIC")
+  
+  # Extract BIC_definition and model_name
+  bics_long <- bics_long %>%
+    mutate(BIC_definition = sub("_(full|reduced1|reduced2|reduced3)$", "", BIC_definition_model),
+           model_name = extract_model_name(BIC_definition_model))
+  
+  # Violin plot for BIC values (all definitions)
+  violin_plot_all <- ggplot(bics_long, aes(x = model_name, y = BIC, fill = model_name)) +
     geom_violin() +
     facet_wrap(~ BIC_definition) +
     theme_minimal() +
@@ -187,38 +246,15 @@ for (name in names(results_list)) {
     theme(axis.text.x = element_text(angle = 45, hjust = 1),
           plot.margin = margin(0, 0, 0, 0))
   
-  violin_plots[[name]] <- violin_plot
-  
-  # Bar plot for selected models
-  bar_plot <- ggplot(selected_models_long, aes(x = BIC_definition, fill = selected_model)) +
-    geom_bar(position = "fill", width = 1) +  # Make sure bars are adjacent
-    facet_wrap(~ BIC_definition) +
-    theme_minimal() +
-    labs(title = paste("Model Selection Proportions by True Model -", name),
-         x = "True Model", y = "Proportion",
-         fill = "Selected Model") +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1),
-          plot.margin = margin(0, 0, 0, 0))
-  
-  bar_plots[[name]] <- bar_plot
-  
-  # Print summary
-  summary_table <- selected_models_long %>%
-    group_by(BIC_definition, true_model, selected_model) %>%
-    summarise(count = n(), .groups = 'drop') %>%
-    pivot_wider(names_from = selected_model, values_from = count, values_fill = list(count = 0))
-  
-  print(paste("Summary for", name))
-  print(summary_table)
+  violin_plots_all[[name]] <- violin_plot_all
 }
 
-# Combine all violin plots using patchwork
-combined_violin_plot <- wrap_plots(violin_plots, ncol = 1) & theme(plot.margin = margin(0, 0, 0, 0))
-combined_bar_plot <- wrap_plots(bar_plots, ncol = 1) & theme(plot.margin = margin(0, 0, 0, 0))
+# Combine all violin plots for all BIC definitions using patchwork
+combined_violin_plot_all <- wrap_plots(violin_plots_all, ncol = 1) & theme(plot.margin = margin(0, 0, 0, 0))
 
-# Display combined plots
-print(combined_violin_plot)
-#print(combined_bar_plot)
+# Display combined plots for all BIC definitions
+print(combined_violin_plot_all)
+
 
 ```
 
@@ -235,13 +271,15 @@ selected_models_long <- pivot_longer(all_results,
                                  labels = c("BIC_f", "BIC_s","BIC_h")))
 
 ggplot(selected_models_long, aes(x = BIC_definition, fill = selected_model)) +
-    geom_bar() +  
+    geom_bar(position = "fill") +  
     facet_wrap(~ ni) +
+    scale_y_continuous(labels = scales::percent) +
     theme_minimal() +
-    labs(title = "Model Selection Proportions",
-         x = "", y = "Proportion",
-         fill = "Selected Model") #+
-    #theme(axis.text.x = element_text(angle = 45, hjust = 1),
-    #      plot.margin = margin(0, 0, 0, 0))
+    labs(title = "Model Selection Percentage",
+         x = "", y = "Percentage",
+         fill = "Selected Model") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          plot.margin = margin(0, 0, 0, 0)) 
+
 ```
 
