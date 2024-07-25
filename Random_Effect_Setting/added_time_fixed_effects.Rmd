@@ -26,7 +26,7 @@ library(patchwork)
 # Defining the BIC functions, looking at three definitions 
 bic_fitzmaurice <- function(model) {
   logLik_val <- as.numeric(logLik(model))
-  n_params <- length(fixef(model)) + sum(sapply(VarCorr(model), function(x) prod(dim(x)))) + 1 
+  n_params <- length(fixef(model)) + as.numeric(model@devcomp$dims["reTrms"]) + 1 
   N <- length(unique(model@frame$group_id)) # Number of subjects
   BIC_value <- -2 * logLik_val + log(N) * n_params
   return(BIC_value)
@@ -34,7 +34,7 @@ bic_fitzmaurice <- function(model) {
 
 bic_normal <- function(model) {
   logLik_val <- as.numeric(logLik(model))
-  n_params <- length(fixef(model)) + sum(sapply(VarCorr(model), function(x) prod(dim(x)))) + 1 #residual standard deviation parameter
+  n_params <- length(fixef(model)) + as.numeric(model@devcomp$dims["reTrms"]) + 1 #residual standard deviation parameter
   N <- nrow(model@frame) # Total number of observations
   BIC_value <- -2 * logLik_val + log(N) * n_params
   return(BIC_value)
@@ -42,8 +42,8 @@ bic_normal <- function(model) {
 
 bic_hybrid <- function(model) {
   logLik_val <- as.numeric(logLik(model))
-  n_fixed <- length(fixef(model))
-  n_random <- sum(sapply(VarCorr(model), function(x) prod(dim(x))))
+  n_fixed <- length(fixef(model))+1
+  n_random <- as.numeric(model@devcomp$dims["reTrms"])
   N <- nrow(model@frame) # Total number of observations
   m <- length(unique(model@frame$group_id)) # Number of groups
   BIC_value <- -2 * logLik_val + n_fixed * log(N) + n_random * log(m)
@@ -195,8 +195,8 @@ full
 
 bic_normal(full)
 BIC(full)
-# why are they different?
-#they are the same now since we have the correct number of parameters 
+bic_fitzmaurice(full)
+bic_hybrid(full)
 
 ```
 
@@ -281,8 +281,8 @@ row.names(all_results) <- NULL
 selected_models_long <- pivot_longer(all_results, 
                                      cols =starts_with("selected_model_"), names_to = "BIC_definition", values_to = "selected_model") %>% 
   mutate(BIC_definition = factor(BIC_definition, 
-                                 levels = c("selected_model_fitzmaurice", "selected_model_normal", "selected_model_hybrid"), 
-                                 labels = c("BIC_f", "BIC_s","BIC_h")))
+                                 levels = c("selected_model_fitzmaurice", "selected_model_hybrid", "selected_model_normal"), 
+                                 labels = c("BIC_f","BIC_h", "BIC_s")))
 
 ggplot(selected_models_long, aes(x = BIC_definition, fill = selected_model)) +
     geom_bar() +  
