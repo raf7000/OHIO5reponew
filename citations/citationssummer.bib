@@ -1,0 +1,37 @@
+@book{balding2004wiley,
+  title={WILEY SERIES IN PROBABILITY AND STATISTICS},
+  author={Balding, D.J. and others},
+  section={7.3},
+  pages={122},
+  note={The authors explain that the Bayesian Information Criterion (BIC) is used for model selection, particularly for non-nested models. BIC is calculated as BIC = -2(logL - 1/2 * p * logN). They discuss the ambiguity in defining N, suggesting that it should represent the number of subjects in longitudinal data. The BIC imposes a penalty proportional to the number of parameters and the sample size, which typically results in selecting simpler models compared to the Akaike Information Criterion (AIC). They also reference Fitzmaurice et al. [2004], who advise against using BIC for selecting covariance structures due to its tendency to favor overly simplistic models.}
+}
+
+@book{pinheiro2000mixed,
+  title={Mixed-effects models in S and S-PLUS},
+  author={Pinheiro, J.C. and Bates, D.M.},
+  chapter={1},
+  pages={10},
+  note={Pinheiro and Bates define BIC as BIC = -2 log Lik + npar log(N), where npar is the number of parameters and N is the number of observations. BIC, also known as Schwarz’s Bayesian Criterion (SBC), is used for comparing models, with lower values indicating a better fit. This definition shows BIC's role in penalizing more complex models, favoring those with fewer parameters.}
+}
+
+@article{lai2004modified,
+  title={Modified BIC Criterion for Model Selection in Linear Mixed Models},
+  author={Lai, Hang and Gao, Xin},
+  pages={10},
+  note={Lai and Gao propose a modified BIC for linear mixed models, considering the complexity of defining the model space. Their modified BIC, BIC* = -2l(θ̂_k; y) + d_k log(n), introduces adjustments to account for both fixed and random effects. This version includes a term for the number of parameters (p), additional constants, and weights to better fit the context of mixed models.}
+}
+
+@article{gurka2006selecting,
+  title={Selecting the best linear mixed model under REML},
+  author={Gurka, Mathew J},
+  pages={20},
+  note={Gurka discusses BIC within the context of mixed models, emphasizing its role in penalizing model complexity. BIC is compared to other criteria like AIC and AICC, noting that BIC is considered a consistent criterion, favoring models that are correct as sample sizes increase. Gurka highlights the subjective nature of using information criteria and the ongoing debate over their effectiveness in different fields.}
+}
+
+@book{fitzmaurice2004applied,
+  title={Applied longitudinal analysis},
+  author={Fitzmaurice, Garrett M},
+  section={7.5},
+  pages={179},
+  note={Fitzmaurice describes BIC as BIC = -2(maximized log-likelihood) + log N*(number of parameters), with N* representing the number of subjects. He explains the Bayesian rationale behind BIC, aiming to select models with the highest posterior probability. However, he criticizes BIC for imposing a large penalty on additional parameters, which can lead to overly simplistic models, especially in covariance model selection.}
+}
